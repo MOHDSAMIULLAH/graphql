@@ -1,0 +1,18 @@
+{
+  "name": "graphql-fundamentals",
+  "version": "1.0.0",
+  "description": "Mini Project 1: Learn GraphQL Basics",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch index.js",
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "apollo-server": "^3",
+    "@apollo/client": "^3.8.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
