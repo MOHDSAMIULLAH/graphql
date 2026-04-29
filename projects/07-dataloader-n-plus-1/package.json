@@ -1,0 +1,16 @@
+{
+  "name": "07-dataloader-n-plus-1",
+  "version": "1.0.0",
+  "description": "DataLoader & the N+1 Problem — Social Network Feed",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "apollo-server": "^3",
+    "graphql": "^16",
+    "dataloader": "^2"
+  }
+}

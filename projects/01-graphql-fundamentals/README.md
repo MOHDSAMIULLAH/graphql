@@ -1,117 +1,331 @@
-# 🚀 Mini Project 1: GraphQL Fundamentals
+# Project 01 — GraphQL Fundamentals
 
-## 📌 What You'll Learn
-- ✅ Define a GraphQL Schema with Types
-- ✅ Create Resolvers (functions that return data)
-- ✅ Query nested data relationships
-- ✅ Understand the Type System (Scalars, Objects, Arrays)
-- ✅ Use Apollo Sandbox for testing
+**System: Users & Posts API**
+**Difficulty: Beginner**
 
 ---
 
-## 🎯 Project Overview
+## What This Project Teaches
 
-This project demonstrates the core GraphQL concepts using a **Blog Platform** example:
-- Users can write posts
-- Each user has multiple posts
-- Each post has an author
+This is your starting point. Before you can do anything in GraphQL, you need to understand three things: the **type system**, **queries**, and **resolvers**. This project gives you all three in one clean, runnable example.
 
-**Data Model:**
-```
-User (id, name, email, age)
-  └─ posts: Post[]
-
-Post (id, title, content, authorId)
-  └─ author: User
-```
+You will build a simple Users & Posts API where users have posts and posts have authors. This relationship — one-to-many, bidirectionally queryable — is the most common pattern you will see in every real-world GraphQL API.
 
 ---
 
-## 📂 Project Structure
+## Tech Stack
 
-```
-01-graphql-fundamentals/
-├── package.json          # Dependencies
-├── index.js              # Main Apollo Server (all code in one file for learning)
-└── README.md            # This file
-```
+| Tool | Purpose |
+|------|---------|
+| Node.js | Runtime |
+| Apollo Server 3 | GraphQL server |
+| In-memory arrays | Mock database (no DB setup needed) |
 
 ---
 
-## 🚀 Getting Started
+## Concepts Covered
 
-### Step 1: Install Dependencies
+- What a GraphQL schema is and how to write one
+- Scalar types: `String`, `Int`, `Float`, `Boolean`, `ID`
+- Object types: `User`, `Post`
+- The `Query` root type — entry point for reading data
+- Non-null (`!`) vs nullable fields
+- Writing resolver functions
+- The 4 resolver arguments: `parent`, `args`, `context`, `info`
+- Nested / field resolvers: resolving `User.posts` and `Post.author`
+- How GraphQL executes a query tree (lazy evaluation)
+
+---
+
+## Setup & Run
+
 ```bash
 cd projects/01-graphql-fundamentals
 npm install
-```
-
-This will install:
-- `apollo-server`: GraphQL server framework
-- `@apollo/client`: GraphQL client library
-
-### Step 2: Start the Server
-```bash
 npm run dev
 ```
 
-You should see:
-```
-✨ GraphQL Server is running!
-📊 Open your browser and go to: http://localhost:4000
-```
-
-### Step 3: Open Apollo Sandbox
-1. Open your browser to `http://localhost:4000`
-2. Apollo Sandbox will open automatically
-3. You're ready to query! 🎉
+Open **http://localhost:4000** — Apollo Sandbox loads automatically.
 
 ---
 
-## 💡 Understanding the Code
+## Project Structure
 
-### 1. **Sample Data** (Mock Database)
-```javascript
-const users = [
-  { id: '1', name: 'Alice Johnson', email: 'alice@example.com', age: 28 },
-  // ...
-];
 ```
-In real apps, this comes from a database (PostgreSQL, MongoDB, etc.)
+01-graphql-fundamentals/
+├── index.js        ← Everything: schema + resolvers + server
+├── package.json
+└── README.md
+```
 
-### 2. **Type Definitions** (Schema)
-```javascript
+---
+
+## Core Concepts Explained
+
+### The Schema
+
+The schema is a contract between client and server. Clients can only ask for what is in the schema — nothing more.
+
+```graphql
 type User {
-  id: ID!              # Required ID field
-  name: String!        # Required string
+  id:    ID!
+  name:  String!
   email: String!
-  age: Int!
-  posts: [Post!]!      # Required array of required Posts
+  age:   Int!
+  posts: [Post!]!   # field resolver — computed at query time, not stored in DB
+}
+
+type Post {
+  id:      ID!
+  title:   String!
+  content: String!
+  author:  User!    # field resolver — looks up the author by authorId
+}
+
+type Query {
+  users:         [User!]!
+  user(id: ID!): User
+  posts:         [Post!]!
+  post(id: ID!): Post
 }
 ```
 
-**Key Symbols:**
-- `!` = Required (must always have a value)
-- `[]` = Array (list of items)
-- `String`, `Int`, `Boolean`, `ID`, `Float` = Scalars (basic types)
+### The 4 Resolver Arguments
 
-### 3. **Resolvers** (Data Fetchers)
-```javascript
+Every resolver function receives exactly these 4 arguments in this order:
+
+```js
+fieldName(parent, args, context, info) { ... }
+```
+
+| Argument | What It Is | When You Use It |
+|----------|------------|-----------------|
+| `parent` | Return value of the parent resolver | Field resolvers (`User.posts`, `Post.author`) |
+| `args` | Arguments passed in the query (`id: "1"`) | Filtering, looking up by ID |
+| `context` | Shared object per request: DB, auth user, DataLoaders | Auth checks, DB queries |
+| `info` | AST of the query, field path, schema | Advanced: query analysis, partial caching |
+
+### Root Resolvers vs Field Resolvers
+
+```js
 const resolvers = {
+  // ROOT RESOLVERS — entry points, called first
   Query: {
-    // This function is called when someone queries "users"
-    users: () => users,
-
-    // This function is called when someone queries "user(id: ...)"
-    user: (parent, args) => {
-      return users.find(user => user.id === args.id);
-    },
+    users: () => users,           // parent is undefined for root resolvers
+    user:  (_, args) => users.find(u => u.id === args.id),
   },
 
+  // FIELD RESOLVERS — called only when that field is requested
   User: {
-    // This is called when querying a User's posts
-    posts: (parent) => {
-      return posts.filter(post => post.authorId === parent.id);
+    // parent = the User object returned by the Query.users resolver
+    posts: (parent) => posts.filter(p => p.authorId === parent.id),
+  },
+
+  Post: {
+    // parent = the Post object
+    author: (parent) => users.find(u => u.id === parent.authorId),
+  },
+};
+```
+
+Field resolvers only execute when the client actually requests that field. This is **lazy evaluation** — if the client doesn't ask for `author`, that resolver never runs.
+
+### Non-null (`!`) Rules
+
+```graphql
+String      # can be null or a string
+String!     # NEVER null — resolver returning null here causes an error
+[Post!]!    # non-null list of non-null posts
+[Post]      # nullable list of nullable posts (both list and items can be null)
+[Post!]     # non-null items, but the list itself can be null
+```
+
+---
+
+## Queries to Try
+
+```graphql
+# 1. Get all users
+query {
+  users { id name email }
+}
+
+# 2. Get one user with their posts (nested query — one HTTP request)
+query {
+  user(id: "1") {
+    name
+    email
+    posts { title content }
+  }
+}
+
+# 3. Get posts with author info (reverse direction)
+query {
+  posts {
+    title
+    author { name email }
+  }
+}
+
+# 4. Ask only for what you need (no over-fetching)
+query {
+  users {
+    name   # only name — age, email, posts are NOT fetched
+  }
+}
+```
+
+---
+
+## Interview Questions & Answers — Coding Round
+
+---
+
+### Q1. Write a GraphQL schema for a Product with a Category
+
+**Question**: Design a schema for a `Product` that belongs to a `Category`. Support querying all products, one product by ID, and all products in a category.
+
+**Answer**:
+
+```graphql
+type Category {
+  id:       ID!
+  name:     String!
+  products: [Product!]!
+}
+
+type Product {
+  id:       ID!
+  name:     String!
+  price:    Float!
+  inStock:  Boolean!
+  category: Category!
+}
+
+type Query {
+  products:                        [Product!]!
+  product(id: ID!):                Product
+  productsByCategory(categoryId: ID!): [Product!]!
+  categories:                      [Category!]!
+}
+```
+
+---
+
+### Q2. Implement the `user(id: ID!): User` resolver
+
+**Given**:
+```js
+const users = [
+  { id: '1', name: 'Alice', email: 'alice@example.com' },
+  { id: '2', name: 'Bob',   email: 'bob@example.com'   },
+];
+```
+
+**Answer**:
+
+```js
+const resolvers = {
+  Query: {
+    // parent is undefined for root queries — use _ as convention
+    user: (_, args) => {
+      return users.find(u => u.id === args.id) ?? null;
+    },
+
+    // Cleaner with destructuring:
+    user: (_, { id }) => users.find(u => u.id === id) ?? null,
+  },
+};
+```
+
+---
+
+### Q3. What happens if a resolver returns `undefined` for a `String!` field?
+
+**Answer**:
+
+GraphQL throws a field-level error: `"Cannot return null for non-nullable field User.name"`.
+
+The error **propagates upward** until it hits a nullable field, setting all ancestors to null.
+
+```js
+// This will cause a runtime GraphQL error:
+User: {
+  name: (parent) => undefined  // String! field — GraphQL rejects this
+}
+
+// Fix: ensure you always return a valid string
+User: {
+  name: (parent) => parent.name ?? 'Unknown',
+}
+```
+
+---
+
+### Q4. Implement a `Post.author` field resolver
+
+**Schema**: `type Post { author: User! }`  
+**Data**: Posts store `authorId`, not the full author object.
+
+**Answer**:
+
+```js
+const resolvers = {
+  Post: {
+    // parent = the Post object e.g. { id: '1', title: '...', authorId: '2' }
+    author: (parent) => {
+      return users.find(u => u.id === parent.authorId) ?? null;
+    },
+  },
+};
+
+// IMPORTANT: this resolver is called ONCE PER POST that is returned.
+// If 10 posts are returned, this runs 10 times → the N+1 problem (see Project 07).
+```
+
+---
+
+### Q5. What is the difference between GraphQL and REST?
+
+**Answer**:
+
+```
+REST Problem 1 — Over-fetching:
+  GET /users/1  → { id, name, email, age, address, phone, createdAt, ... }
+  You needed only 'name' — got everything
+
+REST Problem 2 — Under-fetching (N+1 HTTP requests):
+  To get user + posts + comments:
+    GET /users/1
+    GET /users/1/posts
+    GET /posts/1/comments
+    GET /posts/2/comments
+    = 4+ round trips
+
+GraphQL solution — one request, exactly what you need:
+  query {
+    user(id: "1") {
+      name
+      posts {
+        title
+        comments { text }
+      }
+    }
+  }
+```
+
+---
+
+### Q6. Write a resolver for `users(minAge: Int): [User!]!`
+
+**Answer**:
+
+```js
+const resolvers = {
+  Query: {
+    users: (_, { minAge }) => {
+      if (minAge == null) return users;  // no filter, return all
+      return users.filter(u => u.age >= minAge);
     },
   },
 };
@@ -119,267 +333,34 @@ const resolvers = {
 
 ---
 
-## 🔍 Try These Queries
+### Q7. Explain resolver execution order for a nested query
 
-### Query 1: Get All Users
 ```graphql
-query {
-  users {
-    id
-    name
-    email
-    age
-  }
-}
+query { users { name posts { title } } }
 ```
 
-**Response:**
-```json
-{
-  "data": {
-    "users": [
-      {
-        "id": "1",
-        "name": "Alice Johnson",
-        "email": "alice@example.com",
-        "age": 28
-      },
-      // ...
-    ]
-  }
-}
+**Answer**:
+
 ```
+1. Query.users()         → returns [user1, user2, user3]
+2. User.name(user1)      → default resolver: user1.name
+3. User.posts(user1)     → filter posts where authorId === user1.id → [post1, post2]
+4. Post.title(post1)     → default resolver: post1.title
+5. Post.title(post2)     → default resolver: post2.title
+...repeats for user2, user3
 
-### Query 2: Get User with Posts (Nested Query)
-```graphql
-query {
-  user(id: "1") {
-    name
-    email
-    posts {
-      title
-      content
-    }
-  }
-}
-```
-
-This demonstrates the power of GraphQL:
-- Single request
-- Gets user + their posts
-- Only fields you asked for
-
-### Query 3: Get Post with Author
-```graphql
-query {
-  post(id: "1") {
-    title
-    content
-    author {
-      name
-      email
-    }
-  }
-}
-```
-
-### Query 4: Complex Nested Query
-```graphql
-query {
-  posts {
-    id
-    title
-    author {
-      id
-      name
-      email
-    }
-  }
-}
+Key insight: User.posts runs ONCE PER USER.
+With 100 users → User.posts called 100 times → 100 separate DB queries.
+This is the N+1 problem. Solution: DataLoader (Project 07).
 ```
 
 ---
 
-## 🧪 Hands-On Exercises
+## Key Takeaways
 
-### Exercise 1: Add a New Field
-**Task:** Add `createdAt` field to User type
-
-**Steps:**
-1. Open `index.js`
-2. Find the `User` type definition
-3. Add: `createdAt: String!`
-4. Save and the server auto-reloads
-5. Update the users data with dates
-6. Query it!
-
-**Solution:**
-```javascript
-// In typeDefs
-type User {
-  id: ID!
-  name: String!
-  email: String!
-  age: Int!
-  createdAt: String!    // Add this line
-  posts: [Post!]!
-}
-
-// In mock data
-const users = [
-  { 
-    id: '1', 
-    name: 'Alice Johnson', 
-    email: 'alice@example.com', 
-    age: 28,
-    createdAt: '2024-01-15'   // Add this
-  },
-  // ...
-];
-```
-
-### Exercise 2: Query with Argument
-**Task:** Get only users older than 25
-
-**Steps:**
-1. Add an argument to the `users` query: `users(minAge: Int)`
-2. Filter users in the resolver based on minAge
-3. Query it!
-
-**Solution:**
-```javascript
-// In typeDefs
-type Query {
-  users(minAge: Int): [User!]!
-  // ... other queries
-}
-
-// In resolvers
-users: (parent, args) => {
-  if (args.minAge) {
-    return users.filter(user => user.age >= args.minAge);
-  }
-  return users;
-}
-
-// Query it:
-query {
-  users(minAge: 30) {
-    name
-    age
-  }
-}
-```
-
-### Exercise 3: Add Your Own Field
-**Task:** Add a `postCount` field to User that returns how many posts they have
-
-**Hint:** Use a field resolver to calculate this dynamically
-
----
-
-## 📊 Comparison with REST API
-
-### REST API Approach:
-```
-GET /api/users/1           → returns User object
-GET /api/users/1/posts     → returns Posts array
-GET /api/posts/1           → returns Post object
-GET /api/posts/1/author    → returns User object
-
-Total: 4 API calls
-```
-
-### GraphQL Approach:
-```
-POST /graphql
-{
-  user(id: "1") {
-    posts {
-      author
-    }
-  }
-}
-
-Total: 1 API call
-```
-
----
-
-## 🔑 Key Concepts Recap
-
-| Concept | Explanation |
-|---------|-------------|
-| **Schema** | Contract between client & server (defines all possible queries) |
-| **Type** | Blueprint for an object (User, Post, etc.) |
-| **Scalar** | Basic type (String, Int, Boolean, ID, Float) |
-| **Resolver** | Function that returns data for a field |
-| **Query** | Operation to read data |
-| **Argument** | Parameter passed to a field/query |
-| **Mutation** | Operation to write/modify data (we'll learn next) |
-
----
-
-## 🚨 Common Mistakes
-
-### ❌ Mistake 1: Forgetting `!`
-```graphql
-# Wrong - email could be null
-name: String
-
-# Right - email must always have a value
-name: String!
-```
-
-### ❌ Mistake 2: Field Resolver Not Called
-```javascript
-// If User type has posts field, resolver is called
-// You MUST have User.posts resolver
-User: {
-  posts: (parent) => {
-    return posts.filter(post => post.authorId === parent.id);
-  },
-}
-```
-
-### ❌ Mistake 3: Wrong Return Type
-```javascript
-// Wrong - resolving posts should return array
-posts: (parent) => posts[0]  // Returns single object
-
-// Right
-posts: (parent) => posts.filter(...)  // Returns array
-```
-
----
-
-## 🎬 What's Next?
-
-Once you're comfortable with this project:
-
-1. **Mini Project 2:** Build a mutations-based API (Create, Update, Delete)
-2. **Mini Project 3:** Add real database (MongoDB/PostgreSQL)
-3. **Mini Project 4:** Add authentication & authorization
-4. **Mini Project 5:** Add subscriptions for real-time updates
-
----
-
-## 📚 Learning Resources
-
-- [GraphQL Official Tutorial](https://graphql.org/learn)
-- [Apollo Server Docs](https://www.apollographql.com/docs)
-- [GraphQL Queries & Mutations](https://graphql.org/learn/queries)
-
----
-
-## 💬 Tips for Success
-
-✅ **Type every query yourself** - don't copy-paste
-✅ **Experiment** - try removing fields, see what happens
-✅ **Read the errors** - GraphQL errors are very helpful
-✅ **Use Apollo Sandbox** - it has auto-complete & docs
-✅ **Break it intentionally** - then fix it
-
----
-
-**Happy Learning! 🚀 You've got this!**
+1. Schema = contract. Clients can only ask for what is in the schema.
+2. Every field has a resolver. If you don't write one, GraphQL uses the default: `(parent) => parent[fieldName]`.
+3. Field resolvers only run when the client asks for that field — lazy evaluation.
+4. The 4 resolver args: `parent`, `args`, `context`, `info`. Learn these cold.
+5. Non-null `!` is a promise. If you break it, GraphQL propagates the error upward.
+6. `User.posts` runs once per user — this is where N+1 comes from.

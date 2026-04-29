@@ -1,0 +1,16 @@
+{
+  "name": "06-authentication-authorization",
+  "version": "1.0.0",
+  "description": "Authentication & Authorization — JWT + Context + Role-based Access",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "apollo-server": "^3",
+    "graphql": "^16",
+    "jsonwebtoken": "^9"
+  }
+}

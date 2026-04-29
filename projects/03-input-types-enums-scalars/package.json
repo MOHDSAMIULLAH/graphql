@@ -1,0 +1,15 @@
+{
+  "name": "03-input-types-enums-scalars",
+  "version": "1.0.0",
+  "description": "Input Types, Enums & Custom Scalars — Library Management System",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "apollo-server": "^3",
+    "graphql": "^16"
+  }
+}
